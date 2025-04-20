@@ -1,0 +1,77 @@
+services:
+  web:
+    restart: always
+    env_file:
+      - .env
+    build:
+      context: .
+      dockerfile: deployments/compose/django/Dockerfile
+    command: /start
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - db
+
+  db:
+    image: postgres:16
+    restart: always
+    ports:
+      - "5432:5432"
+    shm_size: '2g'
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    command:
+      - -c
+      - max_connections=150
+      - -c
+      - shared_buffers=2GB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - effective_cache_size=6GB
+      - -c
+      - wal_buffers=16MB
+      - -c
+      - min_wal_size=512MB
+      - -c
+      - max_wal_size=2GB
+      - -c
+      - checkpoint_completion_target=0.9
+      - -c
+      - random_page_cost=1.1
+
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: deployments/compose/django/Dockerfile
+    command: /start-celeryworker
+    restart: always
+    depends_on:
+      - redis
+
+  # celery_beat:
+  #   build:
+  #     context: .
+  #     dockerfile: deployments/compose/django/Dockerfile
+  #   command: /start-celerybeat
+  #   restart: always
+  #   depends_on:
+  #     - redis
+
+volumes:
+  pg_data:
